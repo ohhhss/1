@@ -28,7 +28,9 @@ import {
   CloudRain,
   Cloud,
   Feather,
-  Wind
+  Wind,
+  Clock,
+  MapPin
 } from 'lucide-react';
 import { 
   Tooltip, 
@@ -78,8 +80,11 @@ const Button = ({ onClick, children, variant = 'primary', className = '', icon: 
   );
 };
 
-const Card = ({ children, className = '' }: any) => (
-  <div className={`bg-white dark:bg-stone-800 rounded-2xl shadow-sm border border-stone-100 dark:border-stone-700 p-6 ${className}`}>
+const Card = ({ children, className = '', onClick }: any) => (
+  <div 
+    onClick={onClick}
+    className={`bg-white dark:bg-stone-800 rounded-2xl shadow-sm border border-stone-100 dark:border-stone-700 p-6 ${className}`}
+  >
     {children}
   </div>
 );
@@ -97,6 +102,133 @@ const Chip = ({ label, selected, onClick, colorClass = "bg-stone-100 text-stone-
     {label}
   </button>
 );
+
+// --- Detail Modal Component ---
+const EntryDetailModal = ({ entry, onClose, onDelete }: { entry: DiaryEntry, onClose: () => void, onDelete: (id: string) => void }) => {
+  const moodScore = entry.moodScore ?? 50;
+  const moodColor = getMoodColorHex(moodScore);
+  
+  // Prevent background scroll when modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = 'auto'; };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+      <div 
+        className="bg-white dark:bg-stone-800 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl shadow-2xl animate-slide-up flex flex-col" 
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header Image or Color Bar */}
+        {entry.image ? (
+          <div className="relative w-full h-56 flex-shrink-0">
+             <img src={entry.image} alt="Memory" className="w-full h-full object-cover" />
+             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+             <button onClick={onClose} className="absolute top-4 right-4 bg-black/30 backdrop-blur-md text-white p-2 rounded-full hover:bg-black/50 transition-colors">
+               <X size={20} />
+             </button>
+             <div className="absolute bottom-4 left-6 text-white">
+                <span className="text-sm font-medium opacity-90 block mb-1">
+                  {new Date(entry.timestamp).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </span>
+                <span className="text-xs opacity-75 flex items-center gap-1">
+                   <Clock size={12} />
+                   {new Date(entry.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+             </div>
+          </div>
+        ) : (
+          <div className="relative w-full h-24 flex-shrink-0" style={{ backgroundColor: moodColor }}>
+             <button onClick={onClose} className="absolute top-4 right-4 bg-white/20 text-white p-2 rounded-full hover:bg-white/40 transition-colors">
+               <X size={20} />
+             </button>
+             <div className="absolute bottom-4 left-6 text-white flex items-center gap-2">
+                <span className="text-lg font-bold">
+                  {new Date(entry.timestamp).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}
+                </span>
+                <span className="text-sm opacity-80">
+                   {new Date(entry.timestamp).toLocaleTimeString('zh-CN', { weekday: 'long' })}
+                </span>
+             </div>
+          </div>
+        )}
+
+        {/* Content Body */}
+        <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+           {/* Header Section */}
+           <div>
+             <div className="flex items-center gap-2 mb-3">
+               <div className="w-2 h-6 rounded-full" style={{ backgroundColor: moodColor }}></div>
+               <h2 className="text-2xl font-serif font-bold text-stone-800 dark:text-white leading-tight">
+                 {entry.content.event}
+               </h2>
+             </div>
+             
+             {entry.content.feeling && (
+               <div className="flex items-center gap-2 text-stone-500 dark:text-stone-400">
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold bg-stone-100 dark:bg-stone-700`} style={{ color: moodColor }}>
+                    心情：{entry.content.feeling}
+                  </span>
+               </div>
+             )}
+           </div>
+
+           {/* Main Content */}
+           <div className="prose dark:prose-invert max-w-none">
+             <div className="p-5 rounded-2xl bg-stone-50 dark:bg-stone-900/50 border border-stone-100 dark:border-stone-700 leading-relaxed text-stone-700 dark:text-stone-300 whitespace-pre-wrap">
+                {entry.content.evidence}
+             </div>
+           </div>
+
+           {/* AI Response */}
+           {entry.aiResponse && (
+              <div className="relative p-5 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 overflow-hidden">
+                <Sparkles className="absolute top-4 right-4 text-amber-300 opacity-50" size={48} />
+                <div className="relative z-10">
+                   <p className="text-xs font-bold text-amber-500 uppercase tracking-wider mb-2 flex items-center gap-1">
+                     <Heart size={12} fill="currentColor" /> 来自值得日记的鼓励
+                   </p>
+                   <p className="text-stone-600 dark:text-stone-300 italic font-medium leading-relaxed">
+                     "{entry.aiResponse}"
+                   </p>
+                </div>
+              </div>
+           )}
+
+           {/* Tags */}
+           {entry.tags.length > 0 && (
+             <div className="flex flex-wrap gap-2 pt-2">
+               {entry.tags.map(tag => (
+                 <span key={tag} className="text-xs px-3 py-1.5 bg-stone-100 dark:bg-stone-700 text-stone-500 dark:text-stone-300 rounded-lg flex items-center gap-1">
+                   <Tag size={12} /> {tag}
+                 </span>
+               ))}
+             </div>
+           )}
+        </div>
+
+        {/* Footer Actions */}
+        <div className="p-4 border-t border-stone-100 dark:border-stone-700 flex justify-end gap-3 bg-white dark:bg-stone-800 rounded-b-3xl">
+           <button 
+             onClick={() => {
+               if(window.confirm('确定要删除这条美好的回忆吗？')) {
+                 onDelete(entry.id);
+                 onClose();
+               }
+             }}
+             className="flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors text-sm font-medium"
+           >
+             <Trash2 size={16} /> 删除
+           </button>
+           <Button onClick={onClose} className="px-6 py-2 text-sm shadow-none">
+             关闭
+           </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // --- Sub-Views ---
 
@@ -452,6 +584,7 @@ const CalendarWidget = ({ entries, selectedDate, onSelectDate }: { entries: Diar
 const HistoryView = ({ entries, onDelete }: { entries: DiaryEntry[], onDelete: (id: string) => void }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [viewingEntry, setViewingEntry] = useState<DiaryEntry | null>(null);
   
   const filteredEntries = useMemo(() => {
     let filtered = entries;
@@ -524,14 +657,24 @@ const HistoryView = ({ entries, onDelete }: { entries: DiaryEntry[], onDelete: (
                 {new Date(entry.timestamp).toLocaleString('zh-CN', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </span>
               
-              <Card className="hover:scale-[1.01] transition-transform duration-300 overflow-hidden">
+              <Card 
+                className="hover:scale-[1.01] transition-transform duration-300 overflow-hidden cursor-pointer"
+                onClick={() => setViewingEntry(entry)}
+              >
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-2">
                     {/* Visual Bar for Mood */}
                     <div className="w-1.5 h-6 rounded-full" style={{ backgroundColor: getMoodColorHex(moodScore) }}></div>
                     <h3 className="font-bold text-lg text-stone-800 dark:text-stone-100 line-clamp-1">{entry.content.event}</h3>
                   </div>
-                  <button onClick={() => onDelete(entry.id)} className="text-stone-300 hover:text-red-400 transition-colors p-1">
+                  {/* Keep trash button working separately without triggering modal */}
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(entry.id);
+                    }} 
+                    className="text-stone-300 hover:text-red-400 transition-colors p-1"
+                  >
                     <Trash2 size={16} />
                   </button>
                 </div>
@@ -543,25 +686,16 @@ const HistoryView = ({ entries, onDelete }: { entries: DiaryEntry[], onDelete: (
                 )}
                 
                 {entry.image && (
-                   <div className="mb-4 rounded-lg overflow-hidden max-h-60">
+                   <div className="mb-4 rounded-lg overflow-hidden max-h-40">
                      <img src={entry.image} alt="Memory" className="w-full h-full object-cover" />
                    </div>
                 )}
 
-                <div className={`p-3 rounded-lg border-l-4 mb-4 ${moodScore <= 35 ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-200' : (moodScore <= 65 ? 'bg-teal-50/50 dark:bg-teal-900/10 border-teal-200' : 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-200')}`}>
-                  <p className="text-sm text-stone-700 dark:text-stone-200">{entry.content.evidence}</p>
+                <div className={`p-3 rounded-lg border-l-4 mb-4 line-clamp-2 text-sm ${moodScore <= 35 ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-200' : (moodScore <= 65 ? 'bg-teal-50/50 dark:bg-teal-900/10 border-teal-200' : 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-200')}`}>
+                  <p className="text-stone-700 dark:text-stone-200">{entry.content.evidence}</p>
                 </div>
 
-                {entry.aiResponse && (
-                  <div className="mt-4 pt-4 border-t border-stone-100 dark:border-stone-700">
-                    <div className="flex items-start gap-2">
-                      <Sparkles className="w-4 h-4 text-amber-400 mt-1 flex-shrink-0" />
-                      <p className="text-sm text-stone-500 dark:text-stone-400 italic font-medium text-justify">{entry.aiResponse}</p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 mt-2">
                   {entry.tags.map(tag => (
                     <span key={tag} className="text-xs px-2 py-1 bg-stone-100 dark:bg-stone-900 text-stone-500 rounded-md">#{tag}</span>
                   ))}
@@ -571,6 +705,14 @@ const HistoryView = ({ entries, onDelete }: { entries: DiaryEntry[], onDelete: (
           )})
         )}
       </div>
+
+      {viewingEntry && (
+        <EntryDetailModal 
+          entry={viewingEntry} 
+          onClose={() => setViewingEntry(null)} 
+          onDelete={onDelete}
+        />
+      )}
     </div>
   );
 };
