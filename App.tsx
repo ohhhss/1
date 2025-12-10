@@ -30,7 +30,8 @@ import {
   Feather,
   Wind,
   Clock,
-  MapPin
+  MapPin,
+  Maximize2
 } from 'lucide-react';
 import { 
   Tooltip, 
@@ -103,8 +104,34 @@ const Chip = ({ label, selected, onClick, colorClass = "bg-stone-100 text-stone-
   </button>
 );
 
+// --- Full Screen Image Viewer ---
+const ImageViewer = ({ src, onClose }: { src: string, onClose: () => void }) => {
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/95 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
+      <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white p-2 z-[90] bg-white/10 rounded-full backdrop-blur-md">
+        <X size={24} />
+      </button>
+      <img 
+        src={src} 
+        alt="Full view" 
+        className="max-w-full max-h-full object-contain shadow-2xl animate-scale-up" 
+        onClick={e => e.stopPropagation()} 
+      />
+    </div>
+  );
+};
+
 // --- Detail Modal Component ---
 const EntryDetailModal = ({ entry, onClose, onDelete }: { entry: DiaryEntry, onClose: () => void, onDelete: (id: string) => void }) => {
+  const [showFullImage, setShowFullImage] = useState(false);
   const moodScore = entry.moodScore ?? 50;
   const moodColor = getMoodColorHex(moodScore);
   
@@ -115,118 +142,139 @@ const EntryDetailModal = ({ entry, onClose, onDelete }: { entry: DiaryEntry, onC
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-      <div 
-        className="bg-white dark:bg-stone-800 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl shadow-2xl animate-slide-up flex flex-col" 
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header Image or Color Bar */}
-        {entry.image ? (
-          <div className="relative w-full h-56 flex-shrink-0">
-             <img src={entry.image} alt="Memory" className="w-full h-full object-cover" />
-             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-             <button onClick={onClose} className="absolute top-4 right-4 bg-black/30 backdrop-blur-md text-white p-2 rounded-full hover:bg-black/50 transition-colors">
-               <X size={20} />
-             </button>
-             <div className="absolute bottom-4 left-6 text-white">
-                <span className="text-sm font-medium opacity-90 block mb-1">
-                  {new Date(entry.timestamp).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
-                </span>
-                <span className="text-xs opacity-75 flex items-center gap-1">
-                   <Clock size={12} />
-                   {new Date(entry.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
-                </span>
-             </div>
-          </div>
-        ) : (
-          <div className="relative w-full h-24 flex-shrink-0" style={{ backgroundColor: moodColor }}>
-             <button onClick={onClose} className="absolute top-4 right-4 bg-white/20 text-white p-2 rounded-full hover:bg-white/40 transition-colors">
-               <X size={20} />
-             </button>
-             <div className="absolute bottom-4 left-6 text-white flex items-center gap-2">
-                <span className="text-lg font-bold">
-                  {new Date(entry.timestamp).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}
-                </span>
-                <span className="text-sm opacity-80">
-                   {new Date(entry.timestamp).toLocaleTimeString('zh-CN', { weekday: 'long' })}
-                </span>
-             </div>
-          </div>
-        )}
+    <>
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+        <div 
+          className="bg-white dark:bg-stone-800 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl shadow-2xl animate-slide-up flex flex-col" 
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header Image or Color Bar */}
+          {entry.image ? (
+            <div 
+              className="relative w-full h-56 flex-shrink-0 cursor-zoom-in group" 
+              onClick={() => setShowFullImage(true)}
+            >
+               <img src={entry.image} alt="Memory" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60"></div>
+               
+               {/* View Indicator */}
+               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/30 backdrop-blur-sm text-white px-3 py-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 pointer-events-none">
+                  <Maximize2 size={16} /> <span className="text-xs font-medium">查看大图</span>
+               </div>
 
-        {/* Content Body */}
-        <div className="p-6 space-y-6 flex-1 overflow-y-auto">
-           {/* Header Section */}
-           <div>
-             <div className="flex items-center gap-2 mb-3">
-               <div className="w-2 h-6 rounded-full" style={{ backgroundColor: moodColor }}></div>
-               <h2 className="text-2xl font-serif font-bold text-stone-800 dark:text-white leading-tight">
-                 {entry.content.event}
-               </h2>
-             </div>
-             
-             {entry.content.feeling && (
-               <div className="flex items-center gap-2 text-stone-500 dark:text-stone-400">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold bg-stone-100 dark:bg-stone-700`} style={{ color: moodColor }}>
-                    心情：{entry.content.feeling}
+               {/* Close Button - Stop propagation to prevent opening image */}
+               <button 
+                 onClick={(e) => { e.stopPropagation(); onClose(); }} 
+                 className="absolute top-4 right-4 bg-black/30 backdrop-blur-md text-white p-2 rounded-full hover:bg-black/50 transition-colors z-10"
+               >
+                 <X size={20} />
+               </button>
+
+               <div className="absolute bottom-4 left-6 text-white pointer-events-none">
+                  <span className="text-sm font-medium opacity-90 block mb-1">
+                    {new Date(entry.timestamp).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  </span>
+                  <span className="text-xs opacity-75 flex items-center gap-1">
+                     <Clock size={12} />
+                     {new Date(entry.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
                   </span>
                </div>
-             )}
-           </div>
+            </div>
+          ) : (
+            <div className="relative w-full h-24 flex-shrink-0" style={{ backgroundColor: moodColor }}>
+               <button onClick={onClose} className="absolute top-4 right-4 bg-white/20 text-white p-2 rounded-full hover:bg-white/40 transition-colors">
+                 <X size={20} />
+               </button>
+               <div className="absolute bottom-4 left-6 text-white flex items-center gap-2">
+                  <span className="text-lg font-bold">
+                    {new Date(entry.timestamp).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}
+                  </span>
+                  <span className="text-sm opacity-80">
+                     {new Date(entry.timestamp).toLocaleTimeString('zh-CN', { weekday: 'long' })}
+                  </span>
+               </div>
+            </div>
+          )}
 
-           {/* Main Content */}
-           <div className="prose dark:prose-invert max-w-none">
-             <div className="p-5 rounded-2xl bg-stone-50 dark:bg-stone-900/50 border border-stone-100 dark:border-stone-700 leading-relaxed text-stone-700 dark:text-stone-300 whitespace-pre-wrap">
-                {entry.content.evidence}
+          {/* Content Body */}
+          <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+             {/* Header Section */}
+             <div>
+               <div className="flex items-center gap-2 mb-3">
+                 <div className="w-2 h-6 rounded-full" style={{ backgroundColor: moodColor }}></div>
+                 <h2 className="text-2xl font-serif font-bold text-stone-800 dark:text-white leading-tight">
+                   {entry.content.event}
+                 </h2>
+               </div>
+               
+               {entry.content.feeling && (
+                 <div className="flex items-center gap-2 text-stone-500 dark:text-stone-400">
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold bg-stone-100 dark:bg-stone-700`} style={{ color: moodColor }}>
+                      心情：{entry.content.feeling}
+                    </span>
+                 </div>
+               )}
              </div>
-           </div>
 
-           {/* AI Response */}
-           {entry.aiResponse && (
-              <div className="relative p-5 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 overflow-hidden">
-                <Sparkles className="absolute top-4 right-4 text-amber-300 opacity-50" size={48} />
-                <div className="relative z-10">
-                   <p className="text-xs font-bold text-amber-500 uppercase tracking-wider mb-2 flex items-center gap-1">
-                     <Heart size={12} fill="currentColor" /> 来自值得日记的鼓励
-                   </p>
-                   <p className="text-stone-600 dark:text-stone-300 italic font-medium leading-relaxed">
-                     "{entry.aiResponse}"
-                   </p>
+             {/* Main Content */}
+             <div className="prose dark:prose-invert max-w-none">
+               <div className="p-5 rounded-2xl bg-stone-50 dark:bg-stone-900/50 border border-stone-100 dark:border-stone-700 leading-relaxed text-stone-700 dark:text-stone-300 whitespace-pre-wrap">
+                  {entry.content.evidence}
+               </div>
+             </div>
+
+             {/* AI Response */}
+             {entry.aiResponse && (
+                <div className="relative p-5 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 overflow-hidden">
+                  <Sparkles className="absolute top-4 right-4 text-amber-300 opacity-50" size={48} />
+                  <div className="relative z-10">
+                     <p className="text-xs font-bold text-amber-500 uppercase tracking-wider mb-2 flex items-center gap-1">
+                       <Heart size={12} fill="currentColor" /> 来自值得日记的鼓励
+                     </p>
+                     <p className="text-stone-600 dark:text-stone-300 italic font-medium leading-relaxed">
+                       "{entry.aiResponse}"
+                     </p>
+                  </div>
                 </div>
-              </div>
-           )}
+             )}
 
-           {/* Tags */}
-           {entry.tags.length > 0 && (
-             <div className="flex flex-wrap gap-2 pt-2">
-               {entry.tags.map(tag => (
-                 <span key={tag} className="text-xs px-3 py-1.5 bg-stone-100 dark:bg-stone-700 text-stone-500 dark:text-stone-300 rounded-lg flex items-center gap-1">
-                   <Tag size={12} /> {tag}
-                 </span>
-               ))}
-             </div>
-           )}
-        </div>
+             {/* Tags */}
+             {entry.tags.length > 0 && (
+               <div className="flex flex-wrap gap-2 pt-2">
+                 {entry.tags.map(tag => (
+                   <span key={tag} className="text-xs px-3 py-1.5 bg-stone-100 dark:bg-stone-700 text-stone-500 dark:text-stone-300 rounded-lg flex items-center gap-1">
+                     <Tag size={12} /> {tag}
+                   </span>
+                 ))}
+               </div>
+             )}
+          </div>
 
-        {/* Footer Actions */}
-        <div className="p-4 border-t border-stone-100 dark:border-stone-700 flex justify-end gap-3 bg-white dark:bg-stone-800 rounded-b-3xl">
-           <button 
-             onClick={() => {
-               if(window.confirm('确定要删除这条美好的回忆吗？')) {
-                 onDelete(entry.id);
-                 onClose();
-               }
-             }}
-             className="flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors text-sm font-medium"
-           >
-             <Trash2 size={16} /> 删除
-           </button>
-           <Button onClick={onClose} className="px-6 py-2 text-sm shadow-none">
-             关闭
-           </Button>
+          {/* Footer Actions */}
+          <div className="p-4 border-t border-stone-100 dark:border-stone-700 flex justify-end gap-3 bg-white dark:bg-stone-800 rounded-b-3xl">
+             <button 
+               onClick={() => {
+                 if(window.confirm('确定要删除这条美好的回忆吗？')) {
+                   onDelete(entry.id);
+                   onClose();
+                 }
+               }}
+               className="flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors text-sm font-medium"
+             >
+               <Trash2 size={16} /> 删除
+             </button>
+             <Button onClick={onClose} className="px-6 py-2 text-sm shadow-none">
+               关闭
+             </Button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Full Image Viewer Overlay */}
+      {showFullImage && entry.image && (
+        <ImageViewer src={entry.image} onClose={() => setShowFullImage(false)} />
+      )}
+    </>
   );
 }
 
